@@ -12,10 +12,12 @@ import {
   Menu,
   X,
   Clock,
-  Boxes
+  Boxes,
+  MessageCircle
 } from 'lucide-react';
 import { auth } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
+import { MessagingWidget } from './MessagingWidget';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -144,6 +146,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           onClick={() => setSidebarOpen(false)}
         />
       )}
+
+      {/* Messaging Widget */}
+      <MessagingWidget />
     </div>
   );
 };

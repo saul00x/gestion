@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, getDocs, where, addDoc, doc, getDoc } from 'firebase/firestore';
+import { useNavigate } from 'react-router-dom';
 import { MapPin, Clock, Package, AlertCircle } from 'lucide-react';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../hooks/useAuth';
@@ -8,6 +9,7 @@ import { Stock, Produit, Magasin, Presence } from '../../types';
 
 export const EmployeDashboard: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { getCurrentPosition, calculateDistance, loading: geoLoading, error: geoError } = useGeolocation();
   const [magasin, setMagasin] = useState<Magasin | null>(null);
   const [stats, setStats] = useState({
@@ -60,7 +62,7 @@ export const EmployeDashboard: React.FC = () => {
           produitsAlertes
         });
 
-        // Récupérer le dernier pointage
+        // Récupérer le dernier pointage du jour
         const presencesQuery = query(
           collection(db, 'presences'),
           where('user_id', '==', user.id)
@@ -142,6 +144,16 @@ export const EmployeDashboard: React.FC = () => {
       setPointageLoading(false);
     }
   };
+
+  if (!user?.magasin_id) {
+    return (
+      <div className="text-center py-12">
+        <AlertCircle className="h-16 w-16 text-yellow-400 mx-auto mb-4" />
+        <h3 className="text-lg font-medium text-gray-900 mb-2">Aucun magasin assigné</h3>
+        <p className="text-gray-600">Contactez votre administrateur pour être assigné à un magasin.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -246,15 +258,21 @@ export const EmployeDashboard: React.FC = () => {
       <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Actions rapides</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left transition-colors duration-200">
+          <button 
+            onClick={() => navigate('/employe/stock')}
+            className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left transition-colors duration-200"
+          >
             <Package className="h-6 w-6 text-blue-600 mb-2" />
             <h3 className="font-medium text-gray-900">Consulter le stock</h3>
             <p className="text-sm text-gray-600">Voir les produits disponibles</p>
           </button>
-          <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left transition-colors duration-200">
+          <button 
+            onClick={() => navigate('/employe/pointage')}
+            className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left transition-colors duration-200"
+          >
             <Clock className="h-6 w-6 text-green-600 mb-2" />
-            <h3 className="font-medium text-gray-900">Saisir un mouvement</h3>
-            <p className="text-sm text-gray-600">Enregistrer une entrée/sortie</p>
+            <h3 className="font-medium text-gray-900">Gérer le pointage</h3>
+            <p className="text-sm text-gray-600">Pointer votre présence</p>
           </button>
         </div>
       </div>

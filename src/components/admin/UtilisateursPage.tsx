@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, updateDoc, deleteDoc, doc, addDoc } from 'firebase/firestore';
+import { collection, getDocs, updateDoc, deleteDoc, doc, setDoc } from 'firebase/firestore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { Plus, Edit, Trash2, Search, Users, Shield, User, Save, X, AlertTriangle } from 'lucide-react';
 import { db, auth } from '../../config/firebase';
@@ -74,8 +74,8 @@ export const UtilisateursPage: React.FC = () => {
         try {
           const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
           
-          // Ajouter les données utilisateur dans Firestore
-          await addDoc(collection(db, 'users'), {
+          // Utiliser l'UID de l'utilisateur créé comme ID du document
+          await setDoc(doc(db, 'users', userCredential.user.uid), {
             email: formData.email,
             role: formData.role,
             magasin_id: formData.magasin_id || null,
@@ -89,7 +89,7 @@ export const UtilisateursPage: React.FC = () => {
           } else if (authError.code === 'auth/weak-password') {
             toast.error('Le mot de passe doit contenir au moins 6 caractères');
           } else {
-            toast.error('Erreur lors de la création du compte');
+            toast.error('Erreur lors de la création du compte: ' + authError.message);
           }
           return;
         }
@@ -99,6 +99,7 @@ export const UtilisateursPage: React.FC = () => {
       fetchUsers();
     } catch (error: any) {
       toast.error('Erreur lors de la sauvegarde');
+      console.error('Erreur:', error);
     } finally {
       setLoading(false);
     }

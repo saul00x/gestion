@@ -185,6 +185,7 @@ export const PointagePage: React.FC = () => {
                 <li>• Assurez-vous d'être dans un rayon de 100m du magasin</li>
                 <li>• Activez la géolocalisation sur votre appareil</li>
                 <li>• Cliquez sur le bouton "Pointer mon arrivée"</li>
+                <li>• Vous ne pouvez pointer qu'une seule fois par jour</li>
               </ul>
             </div>
 

@@ -78,3 +78,12 @@ export interface Presence {
   longitude: number;
   type: 'arrivee' | 'depart';
 }
+
+export interface Message {
+  id: string;
+  sender_id: string;
+  receiver_id: string;
+  content: string;
+  timestamp: Date;
+  read: boolean;
+}
