@@ -78,6 +78,12 @@ export const PointagePage: React.FC = () => {
     setPointageLoading(true);
 
     try {
+      // Vérifier d'abord s'il y a déjà un pointage aujourd'hui
+      if (todayPresence) {
+        toast.error('Vous avez déjà pointé aujourd\'hui.');
+        return;
+      }
+
       const position = await getCurrentPosition();
       const distance = calculateDistance(
         position.latitude,
@@ -88,12 +94,6 @@ export const PointagePage: React.FC = () => {
 
       if (distance > 100) {
         toast.error(`Vous êtes trop loin du magasin (${Math.round(distance)}m). Vous devez être dans un rayon de 100m.`);
-        return;
-      }
-
-      // Vérifier s'il y a déjà un pointage aujourd'hui
-      if (todayPresence) {
-        toast.error('Vous avez déjà pointé aujourd\'hui.');
         return;
       }
 
@@ -230,52 +230,52 @@ export const PointagePage: React.FC = () => {
           <h2 className="text-xl font-semibold text-gray-900">Historique des présences</h2>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Heure
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Type
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Magasin
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {presences.slice(0, 10).map((presence) => (
-                <tr key={presence.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {presence.date_pointage.toLocaleDateString('fr-FR')}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {presence.date_pointage.toLocaleTimeString('fr-FR')}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      presence.type === 'arrivee' 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {presence.type === 'arrivee' ? 'Arrivée' : 'Départ'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {magasin?.nom || 'Magasin inconnu'}
-                  </td>
+        {presences.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Heure
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Type
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Magasin
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {presences.length === 0 && (
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {presences.slice(0, 10).map((presence) => (
+                  <tr key={presence.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {presence.date_pointage.toLocaleDateString('fr-FR')}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {presence.date_pointage.toLocaleTimeString('fr-FR')}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        presence.type === 'arrivee' 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {presence.type === 'arrivee' ? 'Arrivée' : 'Départ'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {magasin?.nom || 'Magasin inconnu'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
           <div className="text-center py-12">
             <Clock className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">Aucun pointage enregistré</h3>

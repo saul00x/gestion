@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, doc, getDocs, or } from 'firebase/firestore';
-import { MessageCircle, Send, X, Minimize2, Users } from 'lucide-react';
+import { MessageCircle, Send, X, Minimize2, Users, Bell } from 'lucide-react';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { Message, User } from '../types';
@@ -16,6 +16,7 @@ export const MessagingWidget: React.FC = () => {
   const [newMessage, setNewMessage] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [lastMessageCount, setLastMessageCount] = useState(0);
 
   useEffect(() => {
     if (user) {
@@ -27,6 +28,23 @@ export const MessagingWidget: React.FC = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Notification pour nouveaux messages
+  useEffect(() => {
+    if (messages.length > lastMessageCount && lastMessageCount > 0) {
+      const newMessages = messages.slice(lastMessageCount);
+      newMessages.forEach(msg => {
+        if (msg.receiver_id === user?.id && !msg.read) {
+          const sender = users.find(u => u.id === msg.sender_id);
+          toast.success(`Nouveau message de ${sender?.email || 'Utilisateur inconnu'}`, {
+            icon: '💬',
+            duration: 4000
+          });
+        }
+      });
+    }
+    setLastMessageCount(messages.length);
+  }, [messages, lastMessageCount, user, users]);
 
   const fetchUsers = async () => {
     try {
@@ -134,6 +152,12 @@ export const MessagingWidget: React.FC = () => {
     });
   };
 
+  const getUserUnreadCount = (userId: string) => {
+    return messages.filter(msg => 
+      msg.sender_id === userId && msg.receiver_id === user?.id && !msg.read
+    ).length;
+  };
+
   if (!user) return null;
 
   return (
@@ -146,7 +170,7 @@ export const MessagingWidget: React.FC = () => {
         >
           <MessageCircle className="h-6 w-6" />
           {unreadCount > 0 && (
-            <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center">
+            <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center animate-pulse">
               {unreadCount}
             </span>
           )}
@@ -165,6 +189,11 @@ export const MessagingWidget: React.FC = () => {
               <span className="font-medium">
                 {selectedUser ? selectedUser.email : 'Messages'}
               </span>
+              {unreadCount > 0 && (
+                <span className="bg-red-500 text-white text-xs rounded-full px-2 py-1">
+                  {unreadCount}
+                </span>
+              )}
             </div>
             <div className="flex space-x-2">
               <button
@@ -193,22 +222,30 @@ export const MessagingWidget: React.FC = () => {
                       {user.role === 'admin' ? 'Employés' : 'Administrateurs'}
                     </span>
                   </div>
-                  {users.map((u) => (
-                    <button
-                      key={u.id}
-                      onClick={() => handleUserSelect(u)}
-                      className={`w-full text-left p-2 rounded hover:bg-gray-100 transition-colors duration-200 ${
-                        selectedUser?.id === u.id ? 'bg-blue-50 border-l-2 border-blue-500' : ''
-                      }`}
-                    >
-                      <div className="text-sm font-medium text-gray-900 truncate">
-                        {u.email}
-                      </div>
-                      <div className="text-xs text-gray-500 capitalize">
-                        {u.role}
-                      </div>
-                    </button>
-                  ))}
+                  {users.map((u) => {
+                    const userUnreadCount = getUserUnreadCount(u.id);
+                    return (
+                      <button
+                        key={u.id}
+                        onClick={() => handleUserSelect(u)}
+                        className={`w-full text-left p-2 rounded hover:bg-gray-100 transition-colors duration-200 relative ${
+                          selectedUser?.id === u.id ? 'bg-blue-50 border-l-2 border-blue-500' : ''
+                        }`}
+                      >
+                        <div className="text-sm font-medium text-gray-900 truncate">
+                          {u.email}
+                        </div>
+                        <div className="text-xs text-gray-500 capitalize">
+                          {u.role}
+                        </div>
+                        {userUnreadCount > 0 && (
+                          <span className="absolute top-1 right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                            {userUnreadCount}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -218,32 +255,40 @@ export const MessagingWidget: React.FC = () => {
                   <>
                     {/* Messages */}
                     <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                      {getConversationMessages().map((message) => (
-                        <div
-                          key={message.id}
-                          className={`flex ${
-                            message.sender_id === user.id ? 'justify-end' : 'justify-start'
-                          }`}
-                        >
+                      {getConversationMessages().length === 0 ? (
+                        <div className="text-center text-gray-500 text-sm mt-8">
+                          <MessageCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                          <p>Aucun message</p>
+                          <p>Commencez la conversation !</p>
+                        </div>
+                      ) : (
+                        getConversationMessages().map((message) => (
                           <div
-                            className={`max-w-xs px-3 py-2 rounded-lg text-sm ${
-                              message.sender_id === user.id
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-gray-200 text-gray-900'
+                            key={message.id}
+                            className={`flex ${
+                              message.sender_id === user.id ? 'justify-end' : 'justify-start'
                             }`}
                           >
-                            <p>{message.content}</p>
-                            <p className={`text-xs mt-1 ${
-                              message.sender_id === user.id ? 'text-blue-100' : 'text-gray-500'
-                            }`}>
-                              {message.timestamp.toLocaleTimeString('fr-FR', {
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </p>
+                            <div
+                              className={`max-w-xs px-3 py-2 rounded-lg text-sm ${
+                                message.sender_id === user.id
+                                  ? 'bg-blue-600 text-white'
+                                  : 'bg-gray-200 text-gray-900'
+                              }`}
+                            >
+                              <p>{message.content}</p>
+                              <p className={`text-xs mt-1 ${
+                                message.sender_id === user.id ? 'text-blue-100' : 'text-gray-500'
+                              }`}>
+                                {message.timestamp.toLocaleTimeString('fr-FR', {
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))
+                      )}
                       <div ref={messagesEndRef} />
                     </div>
 
@@ -273,6 +318,7 @@ export const MessagingWidget: React.FC = () => {
                     <div className="text-center">
                       <MessageCircle className="h-8 w-8 mx-auto mb-2" />
                       <p className="text-sm">Sélectionnez un utilisateur</p>
+                      <p className="text-xs">pour commencer à discuter</p>
                     </div>
                   </div>
                 )}

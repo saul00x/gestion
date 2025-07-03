@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
-import { Calendar, Clock, MapPin, User, Filter, Download } from 'lucide-react';
+import { Calendar, Clock, MapPin, User, Filter, Download, AlertCircle } from 'lucide-react';
 import { db } from '../../config/firebase';
 import { Presence, User as UserType, Magasin } from '../../types';
+import toast from 'react-hot-toast';
 
 export const PresencesPage: React.FC = () => {
   const [presences, setPresences] = useState<Presence[]>([]);
@@ -43,6 +44,7 @@ export const PresencesPage: React.FC = () => {
 
     } catch (error) {
       console.error('Erreur lors du chargement des données:', error);
+      toast.error('Erreur lors du chargement des données');
     }
   };
 
@@ -83,6 +85,7 @@ export const PresencesPage: React.FC = () => {
       setPresences(presencesData);
     } catch (error) {
       console.error('Erreur lors du chargement des présences:', error);
+      toast.error('Erreur lors du chargement des présences');
     } finally {
       setLoading(false);
     }
@@ -129,7 +132,8 @@ export const PresencesPage: React.FC = () => {
         </div>
         <button
           onClick={exportToCSV}
-          className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center space-x-2"
+          disabled={presences.length === 0}
+          className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 flex items-center space-x-2"
         >
           <Download className="h-5 w-5" />
           <span>Exporter CSV</span>
@@ -200,7 +204,7 @@ export const PresencesPage: React.FC = () => {
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
           </div>
-        ) : (
+        ) : presences.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
@@ -282,18 +286,16 @@ export const PresencesPage: React.FC = () => {
               </tbody>
             </table>
           </div>
+        ) : (
+          <div className="text-center py-12">
+            <Clock className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Aucune présence trouvée</h3>
+            <p className="text-gray-600">
+              Aucun pointage ne correspond aux filtres sélectionnés.
+            </p>
+          </div>
         )}
       </div>
-
-      {presences.length === 0 && !loading && (
-        <div className="text-center py-12">
-          <Clock className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Aucune présence trouvée</h3>
-          <p className="text-gray-600">
-            Aucun pointage ne correspond aux filtres sélectionnés.
-          </p>
-        </div>
-      )}
 
       {/* Statistics */}
       {presences.length > 0 && (
