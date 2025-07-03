@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { Plus, Edit, Trash2, Search, Package, AlertTriangle, Upload, X, Save } from 'lucide-react';
-import { db, storage } from '../../config/firebase';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { Plus, Edit, Trash2, Search, Package, AlertTriangle, Save, X } from 'lucide-react';
+import { db } from '../../config/firebase';
 import { Produit, Fournisseur } from '../../types';
 import toast from 'react-hot-toast';
 
@@ -13,8 +12,6 @@ export const ProduitsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingProduit, setEditingProduit] = useState<Produit | null>(null);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string>('');
   const [formData, setFormData] = useState({
     nom: '',
     reference: '',
@@ -59,38 +56,13 @@ export const ProduitsPage: React.FC = () => {
     }
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const uploadImage = async (file: File): Promise<string> => {
-    const storageRef = ref(storage, `produits/${Date.now()}_${file.name}`);
-    await uploadBytes(storageRef, file);
-    return await getDownloadURL(storageRef);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      let imageUrl = editingProduit?.image_url || '';
-
-      if (imageFile) {
-        imageUrl = await uploadImage(imageFile);
-      }
-
       const produitData = {
         ...formData,
-        image_url: imageUrl,
         createdAt: editingProduit ? editingProduit.createdAt : new Date()
       };
 
@@ -121,7 +93,6 @@ export const ProduitsPage: React.FC = () => {
       seuil_alerte: produit.seuil_alerte,
       fournisseur_id: produit.fournisseur_id || ''
     });
-    setImagePreview(produit.image_url || '');
     setShowModal(true);
   };
 
@@ -130,10 +101,6 @@ export const ProduitsPage: React.FC = () => {
 
     try {
       await deleteDoc(doc(db, 'produits', produit.id));
-      if (produit.image_url) {
-        const imageRef = ref(storage, produit.image_url);
-        await deleteObject(imageRef);
-      }
       toast.success('Produit supprimé avec succès');
       fetchProduits();
     } catch (error) {
@@ -151,8 +118,6 @@ export const ProduitsPage: React.FC = () => {
       fournisseur_id: ''
     });
     setEditingProduit(null);
-    setImageFile(null);
-    setImagePreview('');
     setShowModal(false);
   };
 
@@ -207,19 +172,11 @@ export const ProduitsPage: React.FC = () => {
           const fournisseur = fournisseurs.find(f => f.id === produit.fournisseur_id);
           return (
             <div key={produit.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-200">
-              {/* Image */}
+              {/* Icon instead of image */}
               <div className="h-48 bg-gray-100 relative">
-                {produit.image_url ? (
-                  <img
-                    src={produit.image_url}
-                    alt={produit.nom}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <Package className="h-16 w-16 text-gray-400" />
-                  </div>
-                )}
+                <div className="w-full h-full flex items-center justify-center">
+                  <Package className="h-16 w-16 text-gray-400" />
+                </div>
                 <div className="absolute top-2 right-2 flex space-x-1">
                   <button
                     onClick={() => handleEdit(produit)}
@@ -309,34 +266,6 @@ export const ProduitsPage: React.FC = () => {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Image Upload */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Image du produit
-                  </label>
-                  <div className="flex items-center space-x-4">
-                    {imagePreview && (
-                      <img
-                        src={imagePreview}
-                        alt="Aperçu"
-                        className="w-20 h-20 object-cover rounded-lg border border-gray-300"
-                      />
-                    )}
-                    <label className="cursor-pointer bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-4 hover:bg-gray-100 transition-colors duration-200">
-                      <div className="flex flex-col items-center">
-                        <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                        <span className="text-sm text-gray-600">Choisir une image</span>
-                      </div>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageChange}
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
-                </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">

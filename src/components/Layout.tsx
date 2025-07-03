@@ -11,7 +11,8 @@ import {
   LogOut,
   Menu,
   X,
-  Clock
+  Clock,
+  Boxes
 } from 'lucide-react';
 import { auth } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
@@ -37,6 +38,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const adminMenuItems = [
     { icon: BarChart3, label: 'Dashboard', path: '/admin/dashboard' },
     { icon: Package, label: 'Produits', path: '/admin/produits' },
+    { icon: Boxes, label: 'Stocks', path: '/admin/stocks' },
     { icon: Store, label: 'Magasins', path: '/admin/magasins' },
     { icon: Truck, label: 'Fournisseurs', path: '/admin/fournisseurs' },
     { icon: Users, label: 'Utilisateurs', path: '/admin/utilisateurs' },

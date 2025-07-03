@@ -22,7 +22,6 @@ export interface Produit {
   categorie: string;
   prix_unitaire: number;
   seuil_alerte: number;
-  image_url?: string;
   fournisseur_id?: string;
   createdAt: Date;
 }

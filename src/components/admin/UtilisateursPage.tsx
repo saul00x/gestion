@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, updateDoc, deleteDoc, doc, query, where } from 'firebase/firestore';
+import { collection, getDocs, updateDoc, deleteDoc, doc, addDoc } from 'firebase/firestore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { Plus, Edit, Trash2, Search, Users, Shield, User, Save, X } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, Users, Shield, User, Save, X, AlertTriangle } from 'lucide-react';
 import { db, auth } from '../../config/firebase';
 import { User as UserType, Magasin } from '../../types';
 import toast from 'react-hot-toast';
@@ -71,28 +71,34 @@ export const UtilisateursPage: React.FC = () => {
         toast.success('Utilisateur modifié avec succès');
       } else {
         // Création d'un nouvel utilisateur
-        const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
-        
-        await updateDoc(doc(db, 'users', userCredential.user.uid), {
-          email: formData.email,
-          role: formData.role,
-          magasin_id: formData.magasin_id || null,
-          createdAt: new Date()
-        });
-        
-        toast.success('Utilisateur créé avec succès');
+        try {
+          const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+          
+          // Ajouter les données utilisateur dans Firestore
+          await addDoc(collection(db, 'users'), {
+            email: formData.email,
+            role: formData.role,
+            magasin_id: formData.magasin_id || null,
+            createdAt: new Date()
+          });
+          
+          toast.success('Utilisateur créé avec succès');
+        } catch (authError: any) {
+          if (authError.code === 'auth/email-already-in-use') {
+            toast.error('Cette adresse email est déjà utilisée');
+          } else if (authError.code === 'auth/weak-password') {
+            toast.error('Le mot de passe doit contenir au moins 6 caractères');
+          } else {
+            toast.error('Erreur lors de la création du compte');
+          }
+          return;
+        }
       }
 
       resetForm();
       fetchUsers();
     } catch (error: any) {
-      if (error.code === 'auth/email-already-in-use') {
-        toast.error('Cette adresse email est déjà utilisée');
-      } else if (error.code === 'auth/weak-password') {
-        toast.error('Le mot de passe doit contenir au moins 6 caractères');
-      } else {
-        toast.error('Erreur lors de la sauvegarde');
-      }
+      toast.error('Erreur lors de la sauvegarde');
     } finally {
       setLoading(false);
     }
@@ -236,7 +242,12 @@ export const UtilisateursPage: React.FC = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {magasin ? magasin.nom : 'Non assigné'}
+                      {magasin ? magasin.nom : (
+                        <span className="text-gray-400 flex items-center">
+                          <AlertTriangle className="h-4 w-4 mr-1" />
+                          Non assigné
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {user.createdAt.toLocaleDateString('fr-FR')}
@@ -341,6 +352,12 @@ export const UtilisateursPage: React.FC = () => {
                     <option value="employe">Employé</option>
                     <option value="admin">Administrateur</option>
                   </select>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {formData.role === 'admin' 
+                      ? 'Accès complet à toutes les fonctionnalités' 
+                      : 'Accès limité au pointage et gestion du stock de son magasin'
+                    }
+                  </p>
                 </div>
 
                 {formData.role === 'employe' && (
@@ -360,6 +377,9 @@ export const UtilisateursPage: React.FC = () => {
                         </option>
                       ))}
                     </select>
+                    <p className="text-sm text-gray-500 mt-1">
+                      L'employé ne pourra pointer que dans ce magasin
+                    </p>
                   </div>
                 )}
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, query, where, addDoc } from 'firebase/firestore';
+import { collection, getDocs, query, where, addDoc, updateDoc, doc } from 'firebase/firestore';
 import { Package, Search, Plus, Minus, AlertTriangle, Save } from 'lucide-react';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../hooks/useAuth';
@@ -69,6 +69,16 @@ export const StockPage: React.FC = () => {
     if (!selectedStock || !user) return;
 
     try {
+      // Calculer la nouvelle quantité
+      const nouvelleQuantite = mouvementData.type === 'entrée' 
+        ? selectedStock.quantite + mouvementData.quantite
+        : selectedStock.quantite - mouvementData.quantite;
+
+      if (nouvelleQuantite < 0) {
+        toast.error('Quantité insuffisante en stock');
+        return;
+      }
+
       // Enregistrer le mouvement
       await addDoc(collection(db, 'mouvements'), {
         produit_id: selectedStock.produit_id,
@@ -78,6 +88,12 @@ export const StockPage: React.FC = () => {
         quantite: mouvementData.quantite,
         date: new Date(),
         motif: mouvementData.motif
+      });
+
+      // Mettre à jour le stock
+      await updateDoc(doc(db, 'stocks', selectedStock.id), {
+        quantite: nouvelleQuantite,
+        updatedAt: new Date()
       });
 
       toast.success('Mouvement enregistré avec succès');
@@ -121,6 +137,16 @@ export const StockPage: React.FC = () => {
     );
   }
 
+  if (!user?.magasin_id) {
+    return (
+      <div className="text-center py-12">
+        <AlertTriangle className="h-16 w-16 text-yellow-400 mx-auto mb-4" />
+        <h3 className="text-lg font-medium text-gray-900 mb-2">Aucun magasin assigné</h3>
+        <p className="text-gray-600">Contactez votre administrateur pour être assigné à un magasin.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -152,19 +178,11 @@ export const StockPage: React.FC = () => {
           
           return (
             <div key={stock.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-200">
-              {/* Image */}
+              {/* Icon instead of image */}
               <div className="h-48 bg-gray-100 relative">
-                {produit.image_url ? (
-                  <img
-                    src={produit.image_url}
-                    alt={produit.nom}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <Package className="h-16 w-16 text-gray-400" />
-                  </div>
-                )}
+                <div className="w-full h-full flex items-center justify-center">
+                  <Package className="h-16 w-16 text-gray-400" />
+                </div>
                 {isLowStock && (
                   <div className="absolute top-2 left-2">
                     <div className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium flex items-center">

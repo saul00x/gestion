@@ -7,6 +7,7 @@ import { Layout } from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { ProduitsPage } from './components/admin/ProduitsPage';
+import { StockManagementPage } from './components/admin/StockManagementPage';
 import { MagasinsPage } from './components/admin/MagasinsPage';
 import { FournisseursPage } from './components/admin/FournisseursPage';
 import { UtilisateursPage } from './components/admin/UtilisateursPage';
@@ -41,6 +42,7 @@ function App() {
                   <Routes>
                     <Route path="dashboard" element={<AdminDashboard />} />
                     <Route path="produits" element={<ProduitsPage />} />
+                    <Route path="stocks" element={<StockManagementPage />} />
                     <Route path="magasins" element={<MagasinsPage />} />
                     <Route path="fournisseurs" element={<FournisseursPage />} />
                     <Route path="utilisateurs" element={<UtilisateursPage />} />

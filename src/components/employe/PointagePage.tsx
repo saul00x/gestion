@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, query, where, orderBy } from 'firebase/firestore';
+import { collection, getDocs, addDoc, query, where, orderBy, doc, getDoc } from 'firebase/firestore';
 import { MapPin, Clock, CheckCircle, AlertCircle, Calendar } from 'lucide-react';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../hooks/useAuth';
@@ -19,6 +19,8 @@ export const PointagePage: React.FC = () => {
   useEffect(() => {
     if (user?.magasin_id) {
       fetchData();
+    } else {
+      setLoading(false);
     }
   }, [user]);
 
@@ -27,17 +29,13 @@ export const PointagePage: React.FC = () => {
 
     try {
       // Récupérer le magasin
-      const magasinDoc = await getDocs(query(
-        collection(db, 'magasins'),
-        where('__name__', '==', user.magasin_id)
-      ));
+      const magasinDoc = await getDoc(doc(db, 'magasins', user.magasin_id));
       
-      if (!magasinDoc.empty) {
-        const magasinData = magasinDoc.docs[0];
+      if (magasinDoc.exists()) {
         setMagasin({
-          id: magasinData.id,
-          ...magasinData.data(),
-          createdAt: magasinData.data().createdAt?.toDate() || new Date()
+          id: magasinDoc.id,
+          ...magasinDoc.data(),
+          createdAt: magasinDoc.data().createdAt?.toDate() || new Date()
         } as Magasin);
       }
 
@@ -122,6 +120,16 @@ export const PointagePage: React.FC = () => {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (!user?.magasin_id) {
+    return (
+      <div className="text-center py-12">
+        <AlertCircle className="h-16 w-16 text-yellow-400 mx-auto mb-4" />
+        <h3 className="text-lg font-medium text-gray-900 mb-2">Aucun magasin assigné</h3>
+        <p className="text-gray-600">Contactez votre administrateur pour être assigné à un magasin.</p>
       </div>
     );
   }
