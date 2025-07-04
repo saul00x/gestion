@@ -236,9 +236,17 @@ export const StockManagementPage: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-10 w-10">
-                          <div className="h-10 w-10 rounded-lg bg-gray-100 flex items-center justify-center">
-                            <Package className="h-5 w-5 text-gray-600" />
-                          </div>
+                          {produit.image_url ? (
+                            <img
+                              src={produit.image_url}
+                              alt={produit.nom}
+                              className="h-10 w-10 rounded-lg object-cover"
+                            />
+                          ) : (
+                            <div className="h-10 w-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                              <Package className="h-5 w-5 text-gray-600" />
+                            </div>
+                          )}
                         </div>
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900">{produit.nom}</div>

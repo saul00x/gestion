@@ -178,11 +178,19 @@ export const StockPage: React.FC = () => {
           
           return (
             <div key={stock.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-200">
-              {/* Icon instead of image */}
+              {/* Image */}
               <div className="h-48 bg-gray-100 relative">
-                <div className="w-full h-full flex items-center justify-center">
-                  <Package className="h-16 w-16 text-gray-400" />
-                </div>
+                {produit.image_url ? (
+                  <img
+                    src={produit.image_url}
+                    alt={produit.nom}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Package className="h-16 w-16 text-gray-400" />
+                  </div>
+                )}
                 {isLowStock && (
                   <div className="absolute top-2 left-2">
                     <div className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium flex items-center">

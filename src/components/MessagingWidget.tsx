@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, doc, getDocs, or } from 'firebase/firestore';
-import { MessageCircle, Send, X, Minimize2, Users, Bell } from 'lucide-react';
+import { MessageCircle, Send, X, Minimize2, Users, Bell, Maximize2 } from 'lucide-react';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { Message, User } from '../types';
+import { MessagingInterface } from './MessagingInterface';
 import toast from 'react-hot-toast';
 
 export const MessagingWidget: React.FC = () => {
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [showFullInterface, setShowFullInterface] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -29,7 +31,6 @@ export const MessagingWidget: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
-  // Notification pour nouveaux messages
   useEffect(() => {
     if (messages.length > lastMessageCount && lastMessageCount > 0) {
       const newMessages = messages.slice(lastMessageCount);
@@ -56,10 +57,8 @@ export const MessagingWidget: React.FC = () => {
       })) as User[];
 
       if (user?.role === 'admin') {
-        // Admin peut voir tous les employés
         setUsers(usersData.filter(u => u.role === 'employe'));
       } else {
-        // Employé peut seulement voir les admins
         setUsers(usersData.filter(u => u.role === 'admin'));
       }
     } catch (error) {
@@ -88,7 +87,6 @@ export const MessagingWidget: React.FC = () => {
 
       setMessages(messagesData);
 
-      // Compter les messages non lus
       const unread = messagesData.filter(msg => 
         msg.receiver_id === user.id && !msg.read
       ).length;
@@ -142,7 +140,6 @@ export const MessagingWidget: React.FC = () => {
   const handleUserSelect = (selectedUser: User) => {
     setSelectedUser(selectedUser);
     
-    // Marquer les messages de cet utilisateur comme lus
     const conversationMessages = messages.filter(msg => 
       msg.sender_id === selectedUser.id && msg.receiver_id === user?.id && !msg.read
     );
@@ -159,6 +156,10 @@ export const MessagingWidget: React.FC = () => {
   };
 
   if (!user) return null;
+
+  if (showFullInterface) {
+    return <MessagingInterface />;
+  }
 
   return (
     <>
@@ -196,6 +197,13 @@ export const MessagingWidget: React.FC = () => {
               )}
             </div>
             <div className="flex space-x-2">
+              <button
+                onClick={() => setShowFullInterface(true)}
+                className="text-white hover:text-gray-200"
+                title="Ouvrir en grand"
+              >
+                <Maximize2 className="h-4 w-4" />
+              </button>
               <button
                 onClick={() => setIsMinimized(!isMinimized)}
                 className="text-white hover:text-gray-200"

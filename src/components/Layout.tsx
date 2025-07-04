@@ -13,11 +13,14 @@ import {
   X,
   Clock,
   Boxes,
-  MessageCircle
+  MessageCircle,
+  Bell,
+  User
 } from 'lucide-react';
 import { auth } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { MessagingWidget } from './MessagingWidget';
+import { NotificationWidget } from './NotificationWidget';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -127,6 +130,20 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               <h1 className="text-lg font-semibold text-gray-900">
                 Gestion de Stock
               </h1>
+            </div>
+            
+            {/* User info and notifications in top right */}
+            <div className="flex items-center space-x-4">
+              <NotificationWidget />
+              <div className="flex items-center space-x-2 bg-gray-50 rounded-lg px-3 py-2">
+                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                  <User className="h-4 w-4 text-white" />
+                </div>
+                <div className="text-sm">
+                  <p className="font-medium text-gray-900">{user?.email}</p>
+                  <p className="text-gray-500 capitalize">{user?.role}</p>
+                </div>
+              </div>
             </div>
           </div>
         </header>
