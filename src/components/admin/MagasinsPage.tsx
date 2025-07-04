@@ -16,8 +16,8 @@ export const MagasinsPage: React.FC = () => {
   const [formData, setFormData] = useState({
     nom: '',
     adresse: '',
-    latitude: 48.8566,
-    longitude: 2.3522,
+    latitude: 33.5731, // Casablanca par défaut
+    longitude: -7.5898,
     image_url: ''
   });
 
@@ -96,8 +96,8 @@ export const MagasinsPage: React.FC = () => {
     setFormData({
       nom: '',
       adresse: '',
-      latitude: 48.8566,
-      longitude: 2.3522,
+      latitude: 33.5731, // Casablanca par défaut
+      longitude: -7.5898,
       image_url: ''
     });
     setEditingMagasin(null);
@@ -273,7 +273,7 @@ export const MagasinsPage: React.FC = () => {
                         onChange={(e) => setFormData({ ...formData, adresse: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         rows={3}
-                        placeholder="Ex: 123 Rue de la République, 75001 Paris"
+                        placeholder="Ex: 123 Rue Mohammed V, Casablanca"
                       />
                     </div>
 
@@ -294,7 +294,7 @@ export const MagasinsPage: React.FC = () => {
                           value={formData.latitude}
                           onChange={(e) => setFormData({ ...formData, latitude: parseFloat(e.target.value) })}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          placeholder="Ex: 48.856614"
+                          placeholder="Ex: 33.5731"
                         />
                       </div>
 
@@ -309,7 +309,7 @@ export const MagasinsPage: React.FC = () => {
                           value={formData.longitude}
                           onChange={(e) => setFormData({ ...formData, longitude: parseFloat(e.target.value) })}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          placeholder="Ex: 2.352222"
+                          placeholder="Ex: -7.5898"
                         />
                       </div>
                     </div>

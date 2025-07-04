@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, updateDoc, deleteDoc, doc, setDoc, query, where } from 'firebase/firestore';
-import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { Plus, Edit, Trash2, Search, Users, Shield, User, Save, X, AlertTriangle } from 'lucide-react';
 import { db, auth } from '../../config/firebase';
 import { User as UserType, Magasin } from '../../types';
@@ -74,9 +74,15 @@ export const UtilisateursPage: React.FC = () => {
       } else {
         // Création d'un nouvel utilisateur
         try {
-          // Sauvegarder l'utilisateur actuel
-          const currentUserAuth = auth.currentUser;
+          // Sauvegarder les informations de l'admin actuel
+          const adminEmail = currentUser?.email;
+          const adminPassword = prompt('Entrez votre mot de passe admin pour confirmer la création:');
           
+          if (!adminPassword) {
+            toast.error('Mot de passe admin requis');
+            return;
+          }
+
           // Créer le nouvel utilisateur
           const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
           
@@ -88,11 +94,10 @@ export const UtilisateursPage: React.FC = () => {
             createdAt: new Date()
           });
           
-          // Déconnecter le nouvel utilisateur et reconnecter l'admin
-          await signOut(auth);
-          
-          // Reconnecter l'admin (Firebase se reconnecte automatiquement)
-          // L'utilisateur actuel sera restauré par le hook useAuth
+          // Reconnecter l'admin immédiatement
+          if (adminEmail) {
+            await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+          }
           
           toast.success('Utilisateur créé avec succès');
         } catch (authError: any) {
@@ -100,6 +105,8 @@ export const UtilisateursPage: React.FC = () => {
             toast.error('Cette adresse email est déjà utilisée');
           } else if (authError.code === 'auth/weak-password') {
             toast.error('Le mot de passe doit contenir au moins 6 caractères');
+          } else if (authError.code === 'auth/wrong-password') {
+            toast.error('Mot de passe admin incorrect');
           } else {
             toast.error('Erreur lors de la création du compte: ' + authError.message);
           }

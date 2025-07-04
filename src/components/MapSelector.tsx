@@ -33,7 +33,7 @@ function LocationMarker({ onPositionChange }: { onPositionChange: (lat: number, 
 }
 
 export const MapSelector: React.FC<MapSelectorProps> = ({ 
-  initialPosition = { lat: 48.8566, lng: 2.3522 }, 
+  initialPosition = { lat: 33.5731, lng: -7.5898 }, // Casablanca par défaut
   onPositionChange 
 }) => {
   const [mapPosition, setMapPosition] = useState<[number, number]>([

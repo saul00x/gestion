@@ -93,6 +93,42 @@ export const PointagePage: React.FC = () => {
   const handlePointage = async (type: 'arrivee' | 'depart' | 'pause_entree' | 'pause_sortie') => {
     if (!user || !magasin) return;
 
+    // Vérifications des conditions
+    if (type === 'arrivee' && todayPresence) {
+      toast.error('Vous avez déjà pointé votre arrivée aujourd\'hui');
+      return;
+    }
+
+    if (type === 'pause_entree' && (!todayPresence || !todayPresence.heure_entree)) {
+      toast.error('Vous devez d\'abord pointer votre arrivée');
+      return;
+    }
+
+    if (type === 'pause_entree' && todayPresence?.pause_entree) {
+      toast.error('Vous avez déjà commencé votre pause aujourd\'hui');
+      return;
+    }
+
+    if (type === 'pause_sortie' && (!todayPresence || !todayPresence.pause_entree)) {
+      toast.error('Vous devez d\'abord commencer votre pause');
+      return;
+    }
+
+    if (type === 'pause_sortie' && todayPresence?.pause_sortie) {
+      toast.error('Vous avez déjà terminé votre pause aujourd\'hui');
+      return;
+    }
+
+    if (type === 'depart' && (!todayPresence || !todayPresence.heure_entree)) {
+      toast.error('Vous devez d\'abord pointer votre arrivée');
+      return;
+    }
+
+    if (type === 'depart' && todayPresence?.heure_sortie) {
+      toast.error('Vous avez déjà pointé votre départ aujourd\'hui');
+      return;
+    }
+
     setPointageLoading(true);
 
     try {
@@ -171,6 +207,23 @@ export const PointagePage: React.FC = () => {
     return `${hours}h ${mins}min`;
   };
 
+  const canDoAction = (action: string) => {
+    if (!todayPresence) return action === 'arrivee';
+    
+    switch (action) {
+      case 'arrivee':
+        return false; // Déjà fait
+      case 'pause_entree':
+        return todayPresence.heure_entree && !todayPresence.pause_entree;
+      case 'pause_sortie':
+        return todayPresence.pause_entree && !todayPresence.pause_sortie;
+      case 'depart':
+        return todayPresence.heure_entree && !todayPresence.heure_sortie;
+      default:
+        return false;
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -230,38 +283,74 @@ export const PointagePage: React.FC = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <button
             onClick={() => handlePointage('arrivee')}
-            disabled={pointageLoading || geoLoading || currentStatus !== 'absent'}
-            className="flex flex-col items-center p-4 border-2 border-green-300 rounded-lg hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            disabled={pointageLoading || geoLoading || !canDoAction('arrivee')}
+            className={`flex flex-col items-center p-4 border-2 rounded-lg transition-colors ${
+              canDoAction('arrivee') 
+                ? 'border-green-300 hover:bg-green-50 text-green-700' 
+                : 'border-gray-200 text-gray-400 cursor-not-allowed'
+            }`}
           >
-            <LogIn className="h-6 w-6 text-green-600 mb-2" />
-            <span className="text-sm font-medium text-green-700">Arrivée</span>
+            <LogIn className="h-6 w-6 mb-2" />
+            <span className="text-sm font-medium">Arrivée</span>
+            {todayPresence?.heure_entree && (
+              <span className="text-xs mt-1">
+                ✓ {todayPresence.heure_entree.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
           </button>
 
           <button
             onClick={() => handlePointage('pause_entree')}
-            disabled={pointageLoading || geoLoading || currentStatus !== 'present'}
-            className="flex flex-col items-center p-4 border-2 border-yellow-300 rounded-lg hover:bg-yellow-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            disabled={pointageLoading || geoLoading || !canDoAction('pause_entree')}
+            className={`flex flex-col items-center p-4 border-2 rounded-lg transition-colors ${
+              canDoAction('pause_entree') 
+                ? 'border-yellow-300 hover:bg-yellow-50 text-yellow-700' 
+                : 'border-gray-200 text-gray-400 cursor-not-allowed'
+            }`}
           >
-            <Coffee className="h-6 w-6 text-yellow-600 mb-2" />
-            <span className="text-sm font-medium text-yellow-700">Début pause</span>
+            <Coffee className="h-6 w-6 mb-2" />
+            <span className="text-sm font-medium">Début pause</span>
+            {todayPresence?.pause_entree && (
+              <span className="text-xs mt-1">
+                ✓ {todayPresence.pause_entree.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
           </button>
 
           <button
             onClick={() => handlePointage('pause_sortie')}
-            disabled={pointageLoading || geoLoading || currentStatus !== 'pause'}
-            className="flex flex-col items-center p-4 border-2 border-orange-300 rounded-lg hover:bg-orange-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            disabled={pointageLoading || geoLoading || !canDoAction('pause_sortie')}
+            className={`flex flex-col items-center p-4 border-2 rounded-lg transition-colors ${
+              canDoAction('pause_sortie') 
+                ? 'border-orange-300 hover:bg-orange-50 text-orange-700' 
+                : 'border-gray-200 text-gray-400 cursor-not-allowed'
+            }`}
           >
-            <Pause className="h-6 w-6 text-orange-600 mb-2" />
-            <span className="text-sm font-medium text-orange-700">Fin pause</span>
+            <Pause className="h-6 w-6 mb-2" />
+            <span className="text-sm font-medium">Fin pause</span>
+            {todayPresence?.pause_sortie && (
+              <span className="text-xs mt-1">
+                ✓ {todayPresence.pause_sortie.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
           </button>
 
           <button
             onClick={() => handlePointage('depart')}
-            disabled={pointageLoading || geoLoading || currentStatus === 'absent'}
-            className="flex flex-col items-center p-4 border-2 border-red-300 rounded-lg hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            disabled={pointageLoading || geoLoading || !canDoAction('depart')}
+            className={`flex flex-col items-center p-4 border-2 rounded-lg transition-colors ${
+              canDoAction('depart') 
+                ? 'border-red-300 hover:bg-red-50 text-red-700' 
+                : 'border-gray-200 text-gray-400 cursor-not-allowed'
+            }`}
           >
-            <LogOut className="h-6 w-6 text-red-600 mb-2" />
-            <span className="text-sm font-medium text-red-700">Départ</span>
+            <LogOut className="h-6 w-6 mb-2" />
+            <span className="text-sm font-medium">Départ</span>
+            {todayPresence?.heure_sortie && (
+              <span className="text-xs mt-1">
+                ✓ {todayPresence.heure_sortie.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
           </button>
         </div>
 

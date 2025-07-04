@@ -17,7 +17,7 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(currentImage || null);
 
-  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -33,32 +33,46 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
       return;
     }
 
+    // Créer un aperçu local immédiatement
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setPreview(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+
+    // L'upload se fera seulement lors de la sauvegarde du formulaire
+    // Stocker le fichier temporairement
+    (window as any).pendingImageFile = file;
+  };
+
+  const uploadPendingImage = async (): Promise<string> => {
+    const file = (window as any).pendingImageFile;
+    if (!file) return currentImage || '';
+
     setUploading(true);
-
     try {
-      // Créer un aperçu local
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setPreview(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-
-      // Upload vers Cloudinary
       const imageUrl = await uploadToCloudinary(file);
-      onImageChange(imageUrl);
       setPreview(imageUrl);
-      toast.success('Image uploadée avec succès');
+      delete (window as any).pendingImageFile;
+      return imageUrl;
     } catch (error) {
       toast.error('Erreur lors de l\'upload de l\'image');
       setPreview(currentImage || null);
+      return currentImage || '';
     } finally {
       setUploading(false);
     }
   };
 
+  // Exposer la fonction d'upload pour le formulaire parent
+  React.useEffect(() => {
+    (window as any).uploadPendingImage = uploadPendingImage;
+  }, []);
+
   const removeImage = () => {
     setPreview(null);
     onImageChange('');
+    delete (window as any).pendingImageFile;
   };
 
   return (
@@ -121,6 +135,12 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
           </>
         )}
       </label>
+      
+      {(window as any).pendingImageFile && (
+        <p className="text-xs text-blue-600">
+          Image sélectionnée. Elle sera uploadée lors de la sauvegarde.
+        </p>
+      )}
     </div>
   );
 };
