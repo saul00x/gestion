@@ -12,6 +12,7 @@ export interface Magasin {
   adresse: string;
   latitude: number;
   longitude: number;
+  image_url?: string;
   createdAt: Date;
 }
 
@@ -23,6 +24,7 @@ export interface Produit {
   prix_unitaire: number;
   seuil_alerte: number;
   fournisseur_id?: string;
+  image_url?: string;
   createdAt: Date;
 }
 
@@ -31,6 +33,7 @@ export interface Fournisseur {
   nom: string;
   adresse: string;
   contact: string;
+  image_url?: string;
   createdAt: Date;
 }
 
@@ -73,10 +76,16 @@ export interface Presence {
   id: string;
   user_id: string;
   magasin_id: string;
+  magasin_nom: string; // Stocker le nom du magasin au moment du pointage
   date_pointage: Date;
+  heure_entree?: Date;
+  heure_sortie?: Date;
+  pause_entree?: Date;
+  pause_sortie?: Date;
+  duree_pause?: number; // en minutes
   latitude: number;
   longitude: number;
-  type: 'arrivee' | 'depart';
+  type: 'arrivee' | 'depart' | 'pause_entree' | 'pause_sortie';
 }
 
 export interface Message {

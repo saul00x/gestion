@@ -3,6 +3,7 @@ import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase
 import { Plus, Edit, Trash2, Search, Package, AlertTriangle, Save, X } from 'lucide-react';
 import { db } from '../../config/firebase';
 import { Produit, Fournisseur } from '../../types';
+import { ImageUpload } from '../ImageUpload';
 import toast from 'react-hot-toast';
 
 export const ProduitsPage: React.FC = () => {
@@ -18,7 +19,8 @@ export const ProduitsPage: React.FC = () => {
     categorie: '',
     prix_unitaire: 0,
     seuil_alerte: 0,
-    fournisseur_id: ''
+    fournisseur_id: '',
+    image_url: ''
   });
 
   useEffect(() => {
@@ -91,7 +93,8 @@ export const ProduitsPage: React.FC = () => {
       categorie: produit.categorie,
       prix_unitaire: produit.prix_unitaire,
       seuil_alerte: produit.seuil_alerte,
-      fournisseur_id: produit.fournisseur_id || ''
+      fournisseur_id: produit.fournisseur_id || '',
+      image_url: produit.image_url || ''
     });
     setShowModal(true);
   };
@@ -115,7 +118,8 @@ export const ProduitsPage: React.FC = () => {
       categorie: '',
       prix_unitaire: 0,
       seuil_alerte: 0,
-      fournisseur_id: ''
+      fournisseur_id: '',
+      image_url: ''
     });
     setEditingProduit(null);
     setShowModal(false);
@@ -172,11 +176,19 @@ export const ProduitsPage: React.FC = () => {
           const fournisseur = fournisseurs.find(f => f.id === produit.fournisseur_id);
           return (
             <div key={produit.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-200">
-              {/* Icon instead of image */}
+              {/* Image */}
               <div className="h-48 bg-gray-100 relative">
-                <div className="w-full h-full flex items-center justify-center">
-                  <Package className="h-16 w-16 text-gray-400" />
-                </div>
+                {produit.image_url ? (
+                  <img
+                    src={produit.image_url}
+                    alt={produit.nom}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Package className="h-16 w-16 text-gray-400" />
+                  </div>
+                )}
                 <div className="absolute top-2 right-2 flex space-x-1">
                   <button
                     onClick={() => handleEdit(produit)}
@@ -191,15 +203,20 @@ export const ProduitsPage: React.FC = () => {
                     <Trash2 className="h-4 w-4 text-red-600" />
                   </button>
                 </div>
+                {produit.seuil_alerte > 0 && (
+                  <div className="absolute top-2 left-2">
+                    <div className="bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-xs font-medium flex items-center">
+                      <AlertTriangle className="h-3 w-3 mr-1" />
+                      Seuil: {produit.seuil_alerte}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Content */}
               <div className="p-4">
                 <div className="flex items-start justify-between mb-2">
                   <h3 className="font-semibold text-gray-900 text-lg">{produit.nom}</h3>
-                  {produit.seuil_alerte > 0 && (
-                    <AlertTriangle className="h-5 w-5 text-orange-500" />
-                  )}
                 </div>
                 
                 <p className="text-sm text-gray-600 mb-2">Réf: {produit.reference}</p>
@@ -266,6 +283,11 @@ export const ProduitsPage: React.FC = () => {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-6">
+                <ImageUpload
+                  currentImage={formData.image_url}
+                  onImageChange={(imageUrl) => setFormData({ ...formData, image_url: imageUrl })}
+                />
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">

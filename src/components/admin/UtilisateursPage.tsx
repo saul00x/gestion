@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, updateDoc, deleteDoc, doc, setDoc } from 'firebase/firestore';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { collection, getDocs, updateDoc, deleteDoc, doc, setDoc, query, where } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { Plus, Edit, Trash2, Search, Users, Shield, User, Save, X, AlertTriangle } from 'lucide-react';
 import { db, auth } from '../../config/firebase';
 import { User as UserType, Magasin } from '../../types';
+import { useAuth } from '../../hooks/useAuth';
 import toast from 'react-hot-toast';
 
 export const UtilisateursPage: React.FC = () => {
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<UserType[]>([]);
   const [magasins, setMagasins] = useState<Magasin[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,15 +74,25 @@ export const UtilisateursPage: React.FC = () => {
       } else {
         // Création d'un nouvel utilisateur
         try {
+          // Sauvegarder l'utilisateur actuel
+          const currentUserAuth = auth.currentUser;
+          
+          // Créer le nouvel utilisateur
           const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
           
-          // Utiliser l'UID de l'utilisateur créé comme ID du document
+          // Créer le document utilisateur
           await setDoc(doc(db, 'users', userCredential.user.uid), {
             email: formData.email,
             role: formData.role,
             magasin_id: formData.magasin_id || null,
             createdAt: new Date()
           });
+          
+          // Déconnecter le nouvel utilisateur et reconnecter l'admin
+          await signOut(auth);
+          
+          // Reconnecter l'admin (Firebase se reconnecte automatiquement)
+          // L'utilisateur actuel sera restauré par le hook useAuth
           
           toast.success('Utilisateur créé avec succès');
         } catch (authError: any) {
@@ -117,11 +129,23 @@ export const UtilisateursPage: React.FC = () => {
   };
 
   const handleDelete = async (user: UserType) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?')) return;
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ? Cela supprimera aussi son historique de pointages.')) return;
 
     try {
+      // Supprimer l'utilisateur
       await deleteDoc(doc(db, 'users', user.id));
-      toast.success('Utilisateur supprimé avec succès');
+      
+      // Supprimer l'historique des présences de cet utilisateur
+      const presencesQuery = query(collection(db, 'presences'), where('user_id', '==', user.id));
+      const presencesSnapshot = await getDocs(presencesQuery);
+      
+      const deletePromises = presencesSnapshot.docs.map(presenceDoc => 
+        deleteDoc(doc(db, 'presences', presenceDoc.id))
+      );
+      
+      await Promise.all(deletePromises);
+      
+      toast.success('Utilisateur et son historique supprimés avec succès');
       fetchUsers();
     } catch (error) {
       toast.error('Erreur lors de la suppression');
@@ -261,12 +285,14 @@ export const UtilisateursPage: React.FC = () => {
                         >
                           <Edit className="h-4 w-4" />
                         </button>
-                        <button
-                          onClick={() => handleDelete(user)}
-                          className="text-red-600 hover:text-red-900 transition-colors duration-200"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        {user.id !== currentUser?.id && (
+                          <button
+                            onClick={() => handleDelete(user)}
+                            className="text-red-600 hover:text-red-900 transition-colors duration-200"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

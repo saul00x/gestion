@@ -3,6 +3,7 @@ import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase
 import { Plus, Edit, Trash2, Search, Truck, Phone, MapPin, Save, X } from 'lucide-react';
 import { db } from '../../config/firebase';
 import { Fournisseur } from '../../types';
+import { ImageUpload } from '../ImageUpload';
 import toast from 'react-hot-toast';
 
 export const FournisseursPage: React.FC = () => {
@@ -14,7 +15,8 @@ export const FournisseursPage: React.FC = () => {
   const [formData, setFormData] = useState({
     nom: '',
     adresse: '',
-    contact: ''
+    contact: '',
+    image_url: ''
   });
 
   useEffect(() => {
@@ -69,7 +71,8 @@ export const FournisseursPage: React.FC = () => {
     setFormData({
       nom: fournisseur.nom,
       adresse: fournisseur.adresse,
-      contact: fournisseur.contact
+      contact: fournisseur.contact,
+      image_url: fournisseur.image_url || ''
     });
     setShowModal(true);
   };
@@ -90,7 +93,8 @@ export const FournisseursPage: React.FC = () => {
     setFormData({
       nom: '',
       adresse: '',
-      contact: ''
+      contact: '',
+      image_url: ''
     });
     setEditingFournisseur(null);
     setShowModal(false);
@@ -143,9 +147,39 @@ export const FournisseursPage: React.FC = () => {
       {/* Fournisseurs Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredFournisseurs.map((fournisseur) => (
-          <div key={fournisseur.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center space-x-3">
+          <div key={fournisseur.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-200">
+            {/* Image */}
+            <div className="h-48 bg-gray-100 relative">
+              {fournisseur.image_url ? (
+                <img
+                  src={fournisseur.image_url}
+                  alt={fournisseur.nom}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <Truck className="h-16 w-16 text-gray-400" />
+                </div>
+              )}
+              <div className="absolute top-2 right-2 flex space-x-1">
+                <button
+                  onClick={() => handleEdit(fournisseur)}
+                  className="p-2 bg-white rounded-full shadow-md hover:bg-gray-50 transition-colors duration-200"
+                >
+                  <Edit className="h-4 w-4 text-gray-600" />
+                </button>
+                <button
+                  onClick={() => handleDelete(fournisseur)}
+                  className="p-2 bg-white rounded-full shadow-md hover:bg-gray-50 transition-colors duration-200"
+                >
+                  <Trash2 className="h-4 w-4 text-red-600" />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-4">
+              <div className="flex items-center space-x-3 mb-4">
                 <div className="p-2 bg-orange-100 rounded-lg">
                   <Truck className="h-6 w-6 text-orange-600" />
                 </div>
@@ -154,31 +188,17 @@ export const FournisseursPage: React.FC = () => {
                   <p className="text-sm text-gray-600">Créé le {fournisseur.createdAt.toLocaleDateString('fr-FR')}</p>
                 </div>
               </div>
-              <div className="flex space-x-1">
-                <button
-                  onClick={() => handleEdit(fournisseur)}
-                  className="p-2 text-gray-400 hover:text-blue-600 transition-colors duration-200"
-                >
-                  <Edit className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => handleDelete(fournisseur)}
-                  className="p-2 text-gray-400 hover:text-red-600 transition-colors duration-200"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
 
-            <div className="space-y-3">
-              <div className="flex items-start space-x-2">
-                <MapPin className="h-4 w-4 text-gray-400 mt-0.5" />
-                <p className="text-sm text-gray-600">{fournisseur.adresse}</p>
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <Phone className="h-4 w-4 text-gray-400" />
-                <p className="text-sm text-gray-600">{fournisseur.contact}</p>
+              <div className="space-y-3">
+                <div className="flex items-start space-x-2">
+                  <MapPin className="h-4 w-4 text-gray-400 mt-0.5" />
+                  <p className="text-sm text-gray-600">{fournisseur.adresse}</p>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <Phone className="h-4 w-4 text-gray-400" />
+                  <p className="text-sm text-gray-600">{fournisseur.contact}</p>
+                </div>
               </div>
             </div>
           </div>
@@ -213,6 +233,11 @@ export const FournisseursPage: React.FC = () => {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-6">
+                <ImageUpload
+                  currentImage={formData.image_url}
+                  onImageChange={(imageUrl) => setFormData({ ...formData, image_url: imageUrl })}
+                />
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Nom du fournisseur *

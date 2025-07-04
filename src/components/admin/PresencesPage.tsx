@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
-import { Calendar, Clock, MapPin, User, Filter, Download, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, MapPin, User, Filter, Download, AlertCircle, Coffee, LogOut, LogIn } from 'lucide-react';
 import { db } from '../../config/firebase';
 import { Presence, User as UserType, Magasin } from '../../types';
 import toast from 'react-hot-toast';
@@ -8,10 +8,8 @@ import toast from 'react-hot-toast';
 export const PresencesPage: React.FC = () => {
   const [presences, setPresences] = useState<Presence[]>([]);
   const [users, setUsers] = useState<UserType[]>([]);
-  const [magasins, setMagasins] = useState<Magasin[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [selectedMagasin, setSelectedMagasin] = useState('');
   const [selectedUser, setSelectedUser] = useState('');
 
   useEffect(() => {
@@ -20,7 +18,7 @@ export const PresencesPage: React.FC = () => {
 
   useEffect(() => {
     fetchPresences();
-  }, [selectedDate, selectedMagasin, selectedUser]);
+  }, [selectedDate, selectedUser]);
 
   const fetchData = async () => {
     try {
@@ -32,15 +30,6 @@ export const PresencesPage: React.FC = () => {
         createdAt: doc.data().createdAt?.toDate() || new Date()
       })) as UserType[];
       setUsers(usersData);
-
-      // Récupérer les magasins
-      const magasinsSnapshot = await getDocs(collection(db, 'magasins'));
-      const magasinsData = magasinsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate() || new Date()
-      })) as Magasin[];
-      setMagasins(magasinsData);
 
     } catch (error) {
       console.error('Erreur lors du chargement des données:', error);
@@ -60,7 +49,11 @@ export const PresencesPage: React.FC = () => {
       let presencesData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
-        date_pointage: doc.data().date_pointage.toDate()
+        date_pointage: doc.data().date_pointage.toDate(),
+        heure_entree: doc.data().heure_entree?.toDate(),
+        heure_sortie: doc.data().heure_sortie?.toDate(),
+        pause_entree: doc.data().pause_entree?.toDate(),
+        pause_sortie: doc.data().pause_sortie?.toDate()
       })) as Presence[];
 
       // Filtrer par date
@@ -70,11 +63,6 @@ export const PresencesPage: React.FC = () => {
           const presenceDate = presence.date_pointage;
           return presenceDate.toDateString() === filterDate.toDateString();
         });
-      }
-
-      // Filtrer par magasin
-      if (selectedMagasin) {
-        presencesData = presencesData.filter(presence => presence.magasin_id === selectedMagasin);
       }
 
       // Filtrer par utilisateur
@@ -92,18 +80,18 @@ export const PresencesPage: React.FC = () => {
   };
 
   const exportToCSV = () => {
-    const headers = ['Date', 'Heure', 'Utilisateur', 'Magasin', 'Type', 'Latitude', 'Longitude'];
+    const headers = ['Date', 'Utilisateur', 'Magasin', 'Arrivée', 'Départ', 'Début Pause', 'Fin Pause', 'Durée Pause'];
     const csvData = presences.map(presence => {
       const user = users.find(u => u.id === presence.user_id);
-      const magasin = magasins.find(m => m.id === presence.magasin_id);
       return [
         presence.date_pointage.toLocaleDateString('fr-FR'),
-        presence.date_pointage.toLocaleTimeString('fr-FR'),
-        user?.email || 'Utilisateur inconnu',
-        magasin?.nom || 'Magasin inconnu',
-        presence.type,
-        presence.latitude.toString(),
-        presence.longitude.toString()
+        user?.email || 'Utilisateur supprimé',
+        presence.magasin_nom || 'Magasin inconnu',
+        presence.heure_entree?.toLocaleTimeString('fr-FR') || '-',
+        presence.heure_sortie?.toLocaleTimeString('fr-FR') || '-',
+        presence.pause_entree?.toLocaleTimeString('fr-FR') || '-',
+        presence.pause_sortie?.toLocaleTimeString('fr-FR') || '-',
+        presence.duree_pause ? `${Math.floor(presence.duree_pause / 60)}h ${presence.duree_pause % 60}min` : '-'
       ];
     });
 
@@ -120,6 +108,12 @@ export const PresencesPage: React.FC = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const formatDuration = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours}h ${mins}min`;
   };
 
   return (
@@ -147,7 +141,7 @@ export const PresencesPage: React.FC = () => {
           <h3 className="text-lg font-medium text-gray-900">Filtres</h3>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Date
@@ -158,24 +152,6 @@ export const PresencesPage: React.FC = () => {
               onChange={(e) => setSelectedDate(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Magasin
-            </label>
-            <select
-              value={selectedMagasin}
-              onChange={(e) => setSelectedMagasin(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">Tous les magasins</option>
-              {magasins.map((magasin) => (
-                <option key={magasin.id} value={magasin.id}>
-                  {magasin.nom}
-                </option>
-              ))}
-            </select>
           </div>
 
           <div>
@@ -210,7 +186,7 @@ export const PresencesPage: React.FC = () => {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date & Heure
+                    Date
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Utilisateur
@@ -219,30 +195,29 @@ export const PresencesPage: React.FC = () => {
                     Magasin
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Type
+                    Arrivée
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Position GPS
+                    Départ
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Pause
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Durée pause
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {presences.map((presence) => {
                   const user = users.find(u => u.id === presence.user_id);
-                  const magasin = magasins.find(m => m.id === presence.magasin_id);
                   return (
                     <tr key={presence.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <Calendar className="h-4 w-4 text-gray-400 mr-2" />
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {presence.date_pointage.toLocaleDateString('fr-FR')}
-                            </div>
-                            <div className="text-sm text-gray-500 flex items-center">
-                              <Clock className="h-3 w-3 mr-1" />
-                              {presence.date_pointage.toLocaleTimeString('fr-FR')}
-                            </div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {presence.date_pointage.toLocaleDateString('fr-FR')}
                           </div>
                         </div>
                       </td>
@@ -255,30 +230,43 @@ export const PresencesPage: React.FC = () => {
                           </div>
                           <div className="ml-3">
                             <div className="text-sm font-medium text-gray-900">
-                              {user?.email || 'Utilisateur inconnu'}
+                              {user?.email || 'Utilisateur supprimé'}
                             </div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {magasin?.nom || 'Magasin inconnu'}
+                        {presence.magasin_nom || 'Magasin inconnu'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          presence.type === 'arrivee' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {presence.type === 'arrivee' ? 'Arrivée' : 'Départ'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center text-sm text-gray-500">
-                          <MapPin className="h-4 w-4 mr-1" />
-                          <span className="font-mono">
-                            {presence.latitude.toFixed(6)}, {presence.longitude.toFixed(6)}
-                          </span>
+                        <div className="flex items-center text-sm text-green-600">
+                          <LogIn className="h-4 w-4 mr-1" />
+                          {presence.heure_entree?.toLocaleTimeString('fr-FR', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          }) || '-'}
                         </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center text-sm text-red-600">
+                          <LogOut className="h-4 w-4 mr-1" />
+                          {presence.heure_sortie?.toLocaleTimeString('fr-FR', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          }) || '-'}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center text-sm text-yellow-600">
+                          <Coffee className="h-4 w-4 mr-1" />
+                          {presence.pause_entree?.toLocaleTimeString('fr-FR', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          }) || '-'}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-orange-600">
+                        {presence.duree_pause ? formatDuration(presence.duree_pause) : '-'}
                       </td>
                     </tr>
                   );
@@ -301,7 +289,7 @@ export const PresencesPage: React.FC = () => {
       {presences.length > 0 && (
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <h3 className="text-lg font-medium text-gray-900 mb-4">Statistiques du jour</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-blue-50 p-4 rounded-lg">
               <div className="flex items-center">
                 <User className="h-8 w-8 text-blue-600" />
@@ -316,21 +304,35 @@ export const PresencesPage: React.FC = () => {
             
             <div className="bg-green-50 p-4 rounded-lg">
               <div className="flex items-center">
-                <Clock className="h-8 w-8 text-green-600" />
+                <LogIn className="h-8 w-8 text-green-600" />
                 <div className="ml-3">
-                  <p className="text-sm font-medium text-green-600">Total pointages</p>
-                  <p className="text-2xl font-bold text-green-900">{presences.length}</p>
+                  <p className="text-sm font-medium text-green-600">Arrivées</p>
+                  <p className="text-2xl font-bold text-green-900">
+                    {presences.filter(p => p.heure_entree).length}
+                  </p>
                 </div>
               </div>
             </div>
             
-            <div className="bg-orange-50 p-4 rounded-lg">
+            <div className="bg-red-50 p-4 rounded-lg">
               <div className="flex items-center">
-                <MapPin className="h-8 w-8 text-orange-600" />
+                <LogOut className="h-8 w-8 text-red-600" />
                 <div className="ml-3">
-                  <p className="text-sm font-medium text-orange-600">Magasins actifs</p>
-                  <p className="text-2xl font-bold text-orange-900">
-                    {new Set(presences.map(p => p.magasin_id)).size}
+                  <p className="text-sm font-medium text-red-600">Départs</p>
+                  <p className="text-2xl font-bold text-red-900">
+                    {presences.filter(p => p.heure_sortie).length}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 p-4 rounded-lg">
+              <div className="flex items-center">
+                <Coffee className="h-8 w-8 text-yellow-600" />
+                <div className="ml-3">
+                  <p className="text-sm font-medium text-yellow-600">Pauses</p>
+                  <p className="text-2xl font-bold text-yellow-900">
+                    {presences.filter(p => p.pause_entree).length}
                   </p>
                 </div>
               </div>

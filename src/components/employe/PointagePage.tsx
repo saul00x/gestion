@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, query, where, orderBy, doc, getDoc } from 'firebase/firestore';
-import { MapPin, Clock, CheckCircle, AlertCircle, Calendar } from 'lucide-react';
+import { collection, getDocs, addDoc, query, where, orderBy, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { MapPin, Clock, CheckCircle, AlertCircle, Calendar, Coffee, LogOut, LogIn, Pause } from 'lucide-react';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { useGeolocation } from '../../hooks/useGeolocation';
@@ -15,6 +15,7 @@ export const PointagePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [pointageLoading, setPointageLoading] = useState(false);
   const [todayPresence, setTodayPresence] = useState<Presence | null>(null);
+  const [currentStatus, setCurrentStatus] = useState<'absent' | 'present' | 'pause'>('absent');
 
   useEffect(() => {
     if (user?.magasin_id) {
@@ -50,12 +51,16 @@ export const PointagePage: React.FC = () => {
       const presencesData = presencesSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
-        date_pointage: doc.data().date_pointage.toDate()
+        date_pointage: doc.data().date_pointage.toDate(),
+        heure_entree: doc.data().heure_entree?.toDate(),
+        heure_sortie: doc.data().heure_sortie?.toDate(),
+        pause_entree: doc.data().pause_entree?.toDate(),
+        pause_sortie: doc.data().pause_sortie?.toDate()
       })) as Presence[];
 
       setPresences(presencesData);
 
-      // Vérifier s'il y a déjà un pointage aujourd'hui
+      // Vérifier le statut actuel
       const today = new Date();
       const todayPresenceData = presencesData.find(p => {
         const pointageDate = p.date_pointage;
@@ -63,6 +68,19 @@ export const PointagePage: React.FC = () => {
       });
 
       setTodayPresence(todayPresenceData || null);
+
+      // Déterminer le statut actuel
+      if (todayPresenceData) {
+        if (todayPresenceData.heure_sortie) {
+          setCurrentStatus('absent');
+        } else if (todayPresenceData.pause_entree && !todayPresenceData.pause_sortie) {
+          setCurrentStatus('pause');
+        } else {
+          setCurrentStatus('present');
+        }
+      } else {
+        setCurrentStatus('absent');
+      }
 
     } catch (error) {
       console.error('Erreur lors du chargement des données:', error);
@@ -72,18 +90,12 @@ export const PointagePage: React.FC = () => {
     }
   };
 
-  const handlePointage = async () => {
+  const handlePointage = async (type: 'arrivee' | 'depart' | 'pause_entree' | 'pause_sortie') => {
     if (!user || !magasin) return;
 
     setPointageLoading(true);
 
     try {
-      // Vérifier d'abord s'il y a déjà un pointage aujourd'hui
-      if (todayPresence) {
-        toast.error('Vous avez déjà pointé aujourd\'hui.');
-        return;
-      }
-
       const position = await getCurrentPosition();
       const distance = calculateDistance(
         position.latitude,
@@ -97,16 +109,53 @@ export const PointagePage: React.FC = () => {
         return;
       }
 
-      await addDoc(collection(db, 'presences'), {
-        user_id: user.id,
-        magasin_id: magasin.id,
-        date_pointage: new Date(),
-        latitude: position.latitude,
-        longitude: position.longitude,
-        type: 'arrivee'
-      });
+      const now = new Date();
 
-      toast.success('Pointage enregistré avec succès !');
+      if (type === 'arrivee') {
+        // Nouveau pointage d'arrivée
+        await addDoc(collection(db, 'presences'), {
+          user_id: user.id,
+          magasin_id: magasin.id,
+          magasin_nom: magasin.nom,
+          date_pointage: now,
+          heure_entree: now,
+          latitude: position.latitude,
+          longitude: position.longitude,
+          type: 'arrivee'
+        });
+        toast.success('Arrivée enregistrée avec succès !');
+      } else if (todayPresence) {
+        // Mise à jour du pointage existant
+        const updateData: any = {};
+        
+        if (type === 'depart') {
+          updateData.heure_sortie = now;
+          updateData.type = 'depart';
+        } else if (type === 'pause_entree') {
+          updateData.pause_entree = now;
+          updateData.type = 'pause_entree';
+        } else if (type === 'pause_sortie') {
+          updateData.pause_sortie = now;
+          updateData.type = 'pause_sortie';
+          
+          // Calculer la durée de pause
+          if (todayPresence.pause_entree) {
+            const pauseDuration = Math.floor((now.getTime() - todayPresence.pause_entree.getTime()) / (1000 * 60));
+            updateData.duree_pause = pauseDuration;
+          }
+        }
+
+        await updateDoc(doc(db, 'presences', todayPresence.id), updateData);
+        
+        const messages = {
+          depart: 'Départ enregistré avec succès !',
+          pause_entree: 'Début de pause enregistré !',
+          pause_sortie: 'Fin de pause enregistrée !'
+        };
+        
+        toast.success(messages[type]);
+      }
+
       fetchData(); // Recharger les données
 
     } catch (error) {
@@ -114,6 +163,12 @@ export const PointagePage: React.FC = () => {
     } finally {
       setPointageLoading(false);
     }
+  };
+
+  const formatDuration = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours}h ${mins}min`;
   };
 
   if (loading) {
@@ -142,87 +197,130 @@ export const PointagePage: React.FC = () => {
         <p className="text-gray-600 mt-1">Gérez vos heures de présence</p>
       </div>
 
-      {/* Pointage du jour */}
+      {/* Statut actuel */}
       <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-gray-900">Pointage du jour</h2>
-          <div className="flex items-center text-sm text-gray-500">
-            <Calendar className="h-4 w-4 mr-1" />
-            {new Date().toLocaleDateString('fr-FR', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            })}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-gray-900">Statut actuel</h2>
+          <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+            currentStatus === 'present' ? 'bg-green-100 text-green-800' :
+            currentStatus === 'pause' ? 'bg-yellow-100 text-yellow-800' :
+            'bg-gray-100 text-gray-800'
+          }`}>
+            {currentStatus === 'present' ? 'Présent' :
+             currentStatus === 'pause' ? 'En pause' : 'Absent'}
           </div>
         </div>
 
-        {todayPresence ? (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-6">
-            <div className="flex items-center">
-              <CheckCircle className="h-8 w-8 text-green-600 mr-4" />
-              <div>
-                <h3 className="text-lg font-medium text-green-800">Pointage effectué</h3>
-                <p className="text-green-600">
-                  Arrivée enregistrée à {todayPresence.date_pointage.toLocaleTimeString('fr-FR')}
-                </p>
-                <p className="text-sm text-green-600 mt-1">
-                  Magasin: {magasin?.nom}
-                </p>
-              </div>
-            </div>
+        <div className="flex items-center text-sm text-gray-500 mb-4">
+          <Calendar className="h-4 w-4 mr-1" />
+          {new Date().toLocaleDateString('fr-FR', { 
+            weekday: 'long', 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+          })}
+        </div>
+
+        <div className="flex items-center text-gray-600 mb-6">
+          <MapPin className="h-5 w-5 mr-2" />
+          <span>Magasin: {magasin?.nom || 'Non assigné'}</span>
+        </div>
+
+        {/* Boutons de pointage */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <button
+            onClick={() => handlePointage('arrivee')}
+            disabled={pointageLoading || geoLoading || currentStatus !== 'absent'}
+            className="flex flex-col items-center p-4 border-2 border-green-300 rounded-lg hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <LogIn className="h-6 w-6 text-green-600 mb-2" />
+            <span className="text-sm font-medium text-green-700">Arrivée</span>
+          </button>
+
+          <button
+            onClick={() => handlePointage('pause_entree')}
+            disabled={pointageLoading || geoLoading || currentStatus !== 'present'}
+            className="flex flex-col items-center p-4 border-2 border-yellow-300 rounded-lg hover:bg-yellow-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <Coffee className="h-6 w-6 text-yellow-600 mb-2" />
+            <span className="text-sm font-medium text-yellow-700">Début pause</span>
+          </button>
+
+          <button
+            onClick={() => handlePointage('pause_sortie')}
+            disabled={pointageLoading || geoLoading || currentStatus !== 'pause'}
+            className="flex flex-col items-center p-4 border-2 border-orange-300 rounded-lg hover:bg-orange-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <Pause className="h-6 w-6 text-orange-600 mb-2" />
+            <span className="text-sm font-medium text-orange-700">Fin pause</span>
+          </button>
+
+          <button
+            onClick={() => handlePointage('depart')}
+            disabled={pointageLoading || geoLoading || currentStatus === 'absent'}
+            className="flex flex-col items-center p-4 border-2 border-red-300 rounded-lg hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <LogOut className="h-6 w-6 text-red-600 mb-2" />
+            <span className="text-sm font-medium text-red-700">Départ</span>
+          </button>
+        </div>
+
+        {pointageLoading && (
+          <div className="mt-4 flex items-center justify-center">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-2"></div>
+            <span>Pointage en cours...</span>
           </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="flex items-center text-gray-600 mb-4">
-              <MapPin className="h-5 w-5 mr-2" />
-              <span>Magasin assigné: {magasin?.nom || 'Non assigné'}</span>
-            </div>
+        )}
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-              <h4 className="font-medium text-blue-800 mb-2">Instructions de pointage</h4>
-              <ul className="text-sm text-blue-700 space-y-1">
-                <li>• Assurez-vous d'être dans un rayon de 100m du magasin</li>
-                <li>• Activez la géolocalisation sur votre appareil</li>
-                <li>• Cliquez sur le bouton "Pointer mon arrivée"</li>
-                <li>• Vous ne pouvez pointer qu'une seule fois par jour</li>
-              </ul>
-            </div>
-
-            <button
-              onClick={handlePointage}
-              disabled={pointageLoading || geoLoading || !magasin}
-              className="w-full bg-blue-600 text-white py-4 px-6 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 flex items-center justify-center space-x-2"
-            >
-              {pointageLoading || geoLoading ? (
-                <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                  <span>Pointage en cours...</span>
-                </>
-              ) : (
-                <>
-                  <Clock className="h-5 w-5" />
-                  <span>Pointer mon arrivée</span>
-                </>
-              )}
-            </button>
-
-            {geoError && (
-              <div className="bg-red-50 text-red-800 p-4 rounded-lg border border-red-200 flex items-center">
-                <AlertCircle className="h-5 w-5 mr-2" />
-                {geoError}
-              </div>
-            )}
-
-            {!magasin && (
-              <div className="bg-yellow-50 text-yellow-800 p-4 rounded-lg border border-yellow-200 flex items-center">
-                <AlertCircle className="h-5 w-5 mr-2" />
-                Aucun magasin assigné. Contactez votre administrateur.
-              </div>
-            )}
+        {geoError && (
+          <div className="mt-4 bg-red-50 text-red-800 p-4 rounded-lg border border-red-200 flex items-center">
+            <AlertCircle className="h-5 w-5 mr-2" />
+            {geoError}
           </div>
         )}
       </div>
+
+      {/* Résumé du jour */}
+      {todayPresence && (
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Résumé du jour</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center">
+              <p className="text-sm text-gray-600">Arrivée</p>
+              <p className="text-lg font-semibold text-green-600">
+                {todayPresence.heure_entree?.toLocaleTimeString('fr-FR', {
+                  hour: '2-digit',
+                  minute: '2-digit'
+                }) || '-'}
+              </p>
+            </div>
+            <div className="text-center">
+              <p className="text-sm text-gray-600">Départ</p>
+              <p className="text-lg font-semibold text-red-600">
+                {todayPresence.heure_sortie?.toLocaleTimeString('fr-FR', {
+                  hour: '2-digit',
+                  minute: '2-digit'
+                }) || '-'}
+              </p>
+            </div>
+            <div className="text-center">
+              <p className="text-sm text-gray-600">Pause</p>
+              <p className="text-lg font-semibold text-yellow-600">
+                {todayPresence.pause_entree?.toLocaleTimeString('fr-FR', {
+                  hour: '2-digit',
+                  minute: '2-digit'
+                }) || '-'}
+              </p>
+            </div>
+            <div className="text-center">
+              <p className="text-sm text-gray-600">Durée pause</p>
+              <p className="text-lg font-semibold text-orange-600">
+                {todayPresence.duree_pause ? formatDuration(todayPresence.duree_pause) : '-'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Historique des présences */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -239,13 +337,19 @@ export const PointagePage: React.FC = () => {
                     Date
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Heure
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Type
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Magasin
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Arrivée
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Départ
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Pause
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Durée pause
                   </th>
                 </tr>
               </thead>
@@ -256,19 +360,28 @@ export const PointagePage: React.FC = () => {
                       {presence.date_pointage.toLocaleDateString('fr-FR')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {presence.date_pointage.toLocaleTimeString('fr-FR')}
+                      {presence.magasin_nom || 'Magasin inconnu'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        presence.type === 'arrivee' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {presence.type === 'arrivee' ? 'Arrivée' : 'Départ'}
-                      </span>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">
+                      {presence.heure_entree?.toLocaleTimeString('fr-FR', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      }) || '-'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {magasin?.nom || 'Magasin inconnu'}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">
+                      {presence.heure_sortie?.toLocaleTimeString('fr-FR', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      }) || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-yellow-600">
+                      {presence.pause_entree?.toLocaleTimeString('fr-FR', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      }) || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-orange-600">
+                      {presence.duree_pause ? formatDuration(presence.duree_pause) : '-'}
                     </td>
                   </tr>
                 ))}
